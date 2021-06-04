@@ -30,6 +30,10 @@ project (${LIB_NAME})
 # Setup
 #################################################
 
+if (EMSCRIPTEN)
+    message(STATUS "*** Emscripten detected.")
+endif()
+
 #------------------------------------------------------------------------
 # Release Information
 #   Release version and date are found in `version.txt`; update *that*
@@ -77,10 +81,15 @@ endif ()
 #------------------------------------------------------------------------
 set( LIB_TYPE STATIC )  # set default message
 
-option( BUILD_SHARED_LIB "Set OFF to NOT build shared library"     ON  )
+if (EMSCRIPTEN)
+    set( BUILD_SHARED_LIB       OFF )
+    set( TIDY_CONSOLE_SHARED    OFF )
+else ()
+    option( BUILD_SHARED_LIB "Set OFF to NOT build shared library"     ON  )
 
-# Issue #326 - Allow linkage choice of console app tidy
-option( TIDY_CONSOLE_SHARED "Set ON to link with shared(DLL) lib." OFF )
+    # Issue #326 - Allow linkage choice of console app tidy
+    option( TIDY_CONSOLE_SHARED "Set ON to link with shared(DLL) lib." OFF )
+endif()
 
 if (TIDY_CONSOLE_SHARED)
     if (NOT BUILD_SHARED_LIB)
@@ -110,7 +119,11 @@ endif ()
 # Localization
 #   Allow building without extra language support.
 #------------------------------------------------------------------------
-option( SUPPORT_LOCALIZATIONS "Set OFF to build without additional languages." ON )
+if (EMSCRIPTEN)
+    set( SUPPORT_LOCALIZATIONS OFF )
+else()
+    option( SUPPORT_LOCALIZATIONS "Set OFF to build without additional languages." ON )
+endif()
 
 if (SUPPORT_LOCALIZATIONS)
     add_definitions ( -DSUPPORT_LOCALIZATIONS=1 )
@@ -199,9 +212,14 @@ else()
     # add any gcc flags
 endif()
 
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARNING_FLAGS} ${MSVC_FLAGS} -D_REENTRANT" )
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS} ${MSVC_FLAGS} -D_REENTRANT" )
-set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${MSVC_LD_FLAGS}" )
+if (EMSCRIPTEN)
+    set( EMSCRIPTEN_FLAGS    "-O3" )
+    set( EMSCRIPTEN_LD_FLAGS "-O3 -s SINGLE_FILE=1 --memory-init-file 0 --pre-js ${PROJECT_SOURCE_DIR}/build/emscripten/wrapper.js" )
+endif ()
+
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${WARNING_FLAGS} ${MSVC_FLAGS} ${EMSCRIPTEN_FLAGS} -D_REENTRANT" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARNING_FLAGS} ${MSVC_FLAGS} ${EMSCRIPTEN_FLAGS} -D_REENTRANT" )
+set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${MSVC_LD_FLAGS} ${EMSCRIPTEN_LD_FLAGS}" )
 
 
 #------------------------------------------------------------------------
@@ -475,7 +493,7 @@ endif ()
 # Create man pages
 #################################################
 
-if (UNIX AND SUPPORT_CONSOLE_APP)
+if (UNIX AND NOT EMSCRIPTEN AND SUPPORT_CONSOLE_APP)
     find_program( XSLTPROC_FOUND xsltproc )
     if (XSLTPROC_FOUND)
         ## NOTE: man name must match exe ie currently `${LIB_NAME}.1` not `tidy.1`

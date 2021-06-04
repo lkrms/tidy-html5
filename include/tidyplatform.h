@@ -370,6 +370,10 @@ extern "C" {
 #  endif
 #endif
 
+#ifdef EMSCRIPTEN
+#  define PRESERVE_FILE_TIMES 0
+#  include <sys/types.h>
+#endif
 
 /*=============================================================================
  * Standard Library Includes
